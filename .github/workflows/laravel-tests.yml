@@ -30,4 +30,4 @@ jobs:
         run: php artisan key:generate
 
       - name: Run tests
-        run: php artisan test --verbose
+        run: php artisan test -v
