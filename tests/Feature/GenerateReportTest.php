@@ -94,6 +94,13 @@ class GenerateReportTest extends TestCase
 
     public function testGenerateDiagnosticReport()
     {
+        $this->artisan('report:generate', ['studentId' => 'student1', 'type' => 'diagnostic'])
+            ->expectsOutputToContain('Tony Stark recently completed Numeracy assessment')
+            ->assertExitCode(0);
+    }
+
+    public function testGenerateDiagnosticReport2()
+    {
         $this->artisan('report:generate', ['studentId' => 'student2', 'type' => 'diagnostic'])
             ->expectsOutputToContain('Steve Rogers recently completed Numeracy assessment')
             ->assertExitCode(0);
