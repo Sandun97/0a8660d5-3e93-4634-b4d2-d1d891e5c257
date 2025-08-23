@@ -2,44 +2,32 @@ name: Laravel Tests
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
   pull_request:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: laravel
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.1
-          extensions: mbstring, bcmath, json, mysql
+          php-version: '8.1'
+          extensions: mbstring, bcmath, json
+          coverage: none
 
-      - name: Install Composer dependencies
+      - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-suggest
 
       - name: Copy .env
         run: cp .env.example .env
 
-      - name: Run Tests
-        run: php artisan test
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run tests
+        run: php artisan test --verbose
