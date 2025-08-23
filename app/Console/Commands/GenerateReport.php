@@ -55,40 +55,43 @@ class GenerateReport extends Command
     {
         $studentResponses = collect($responses)
             ->where('student.id', $student['id'])
-            ->sortByDesc('completed')
-            ->first();
+            ->sortByDesc('completed');
 
-        if (!$studentResponses) {
+        if ($studentResponses->isEmpty()) {
             $this->warn("No responses found.");
             return;
         }
 
-        $assessment = collect($assessments)->firstWhere('id', $studentResponses['assessmentId']);
-        $completedAt = $studentResponses['completed'];
+        foreach ($studentResponses as $response) {
+            $assessment = collect($assessments)->firstWhere('id', $response['assessmentId']);
+            $completedAt = $response['completed'] ?? 'N/A';
 
-        $correctCount = 0;
-        $strandSummary = [];
+            $correctCount = 0;
+            $strandSummary = [];
 
-        foreach ($studentResponses['responses'] as $resp) {
-            $question = collect($questions)->firstWhere('id', $resp['questionId']);
-            if (!$question) continue;
+            foreach ($response['responses'] as $resp) {
+                $question = collect($questions)->firstWhere('id', $resp['questionId']);
+                if (!$question) continue;
 
-            $isCorrect = $resp['response'] === $question['config']['key'];
-            if ($isCorrect) $correctCount++;
+                $isCorrect = $resp['response'] === $question['config']['key'];
+                if ($isCorrect) $correctCount++;
 
-            $strand = $question['strand'];
-            if (!isset($strandSummary[$strand])) {
-                $strandSummary[$strand] = ['correct' => 0, 'total' => 0];
+                $strand = $question['strand'];
+                if (!isset($strandSummary[$strand])) {
+                    $strandSummary[$strand] = ['correct' => 0, 'total' => 0];
+                }
+                $strandSummary[$strand]['total']++;
+                if ($isCorrect) $strandSummary[$strand]['correct']++;
             }
-            $strandSummary[$strand]['total']++;
-            if ($isCorrect) $strandSummary[$strand]['correct']++;
-        }
 
-        $this->line("{$student['firstName']} {$student['lastName']} recently completed {$assessment['name']} assessment on {$completedAt}");
-        $this->line("He got {$correctCount} questions right out of " . count($studentResponses['responses']) . ". Details by strand given below:\n");
+            $this->line("{$student['firstName']} {$student['lastName']} recently completed {$assessment['name']} assessment on {$completedAt}");
+            $this->line("He got {$correctCount} questions right out of " . count($response['responses']) . ". Details by strand given below:\n");
 
-        foreach ($strandSummary as $strand => $summary) {
-            $this->line("{$strand}: {$summary['correct']} out of {$summary['total']} correct");
+            foreach ($strandSummary as $strand => $summary) {
+                $this->line("{$strand}: {$summary['correct']} out of {$summary['total']} correct");
+            }
+
+            $this->line("");
         }
     }
 
@@ -103,62 +106,68 @@ class GenerateReport extends Command
             return;
         }
 
-        $assessment = collect($assessments)->firstWhere('id', $studentResponses->first()['assessmentId']);
+        foreach ($studentResponses->groupBy('assessmentId') as $assessmentId => $respGroup) {
+            $assessment = collect($assessments)->firstWhere('id', $assessmentId);
 
-        $this->line("{$student['firstName']} {$student['lastName']} has completed {$assessment['name']} assessment {$studentResponses->count()} times in total. Date and raw score given below:\n");
+            $this->line("{$student['firstName']} {$student['lastName']} has completed {$assessment['name']} assessment {$respGroup->count()} times in total. Date and raw score given below:\n");
 
-        foreach ($studentResponses as $resp) {
-            $date = $resp['completed'] ?? 'N/A';
-            $this->line("Date: {$date}, Raw Score: {$resp['results']['rawScore']} out of " . count($resp['responses']));
+            foreach ($respGroup as $resp) {
+                $date = $resp['completed'] ?? 'N/A';
+                $this->line("Date: {$date}, Raw Score: {$resp['results']['rawScore']} out of " . count($resp['responses']));
+            }
+
+            $first = $respGroup->first()['results']['rawScore'];
+            $last = $respGroup->last()['results']['rawScore'];
+            $diff = $last - $first;
+
+            $this->line("\n{$student['firstName']} {$student['lastName']} got {$diff} more correct in the most recent completion of {$assessment['name']} compared to the oldest attempt.\n");
         }
-
-        $first = $studentResponses->first()['results']['rawScore'];
-        $last = $studentResponses->last()['results']['rawScore'];
-        $diff = $last - $first;
-
-        $this->line("\n{$student['firstName']} {$student['lastName']} got {$diff} more correct in the recent completed assessment than the oldest");
     }
 
     private function generateFeedback($student, $responses, $questions, $assessments)
     {
         $studentResponses = collect($responses)
             ->where('student.id', $student['id'])
-            ->sortByDesc('completed')
-            ->first();
+            ->sortByDesc('completed');
 
-        if (!$studentResponses) {
+        if ($studentResponses->isEmpty()) {
             $this->warn("No responses found.");
             return;
         }
 
-        $assessment = collect($assessments)->firstWhere('id', $studentResponses['assessmentId']);
-        $completedAt = $studentResponses['completed'];
+        foreach ($studentResponses as $response) {
+            $assessment = collect($assessments)->firstWhere('id', $response['assessmentId']);
+            $completedAt = $response['completed'] ?? 'N/A';
 
-        $correctCount = 0;
-        $totalQuestions = count($studentResponses['responses']);
+            $correctCount = 0;
+            $totalQuestions = count($response['responses']);
 
-        foreach ($studentResponses['responses'] as $resp) {
-            $question = collect($questions)->firstWhere('id', $resp['questionId']);
-            if (!$question) continue;
-            if ($resp['response'] === $question['config']['key']) $correctCount++;
-        }
-
-        $this->line("{$student['firstName']} {$student['lastName']} recently completed {$assessment['name']} assessment on {$completedAt}");
-        $this->line("He got {$correctCount} questions right out of {$totalQuestions}. Feedback for wrong answers given below\n");
-
-        foreach ($studentResponses['responses'] as $resp) {
-            $question = collect($questions)->firstWhere('id', $resp['questionId']);
-            if (!$question) continue;
-
-            if ($resp['response'] !== $question['config']['key']) {
-                $yourAns = collect($question['config']['options'])->firstWhere('id', $resp['response']);
-                $correctAns = collect($question['config']['options'])->firstWhere('id', $question['config']['key']);
-
-                $this->line("Question: {$question['stem']}");
-                $this->line("Your answer: {$yourAns['label']} with value {$yourAns['value']}");
-                $this->line("Right answer: {$correctAns['label']} with value {$correctAns['value']}");
-                $this->line("Hint: {$question['config']['hint']}\n");
+            foreach ($response['responses'] as $resp) {
+                $question = collect($questions)->firstWhere('id', $resp['questionId']);
+                if (!$question) continue;
+                if ($resp['response'] === $question['config']['key']) $correctCount++;
             }
+
+            $this->line("{$student['firstName']} {$student['lastName']} recently completed {$assessment['name']} assessment on {$completedAt}");
+            $this->line("He got {$correctCount} questions right out of {$totalQuestions}. Feedback for wrong answers given below\n");
+
+            foreach ($response['responses'] as $resp) {
+                $question = collect($questions)->firstWhere('id', $resp['questionId']);
+                if (!$question) continue;
+
+                if ($resp['response'] !== $question['config']['key']) {
+                    $yourAns = collect($question['config']['options'])->firstWhere('id', $resp['response']);
+                    $correctAns = collect($question['config']['options'])->firstWhere('id', $question['config']['key']);
+
+                    $this->line("Question: {$question['stem']}");
+                    $this->line("Your answer: {$yourAns['label']} (value: {$yourAns['value']})");
+                    $this->line("Correct answer: {$correctAns['label']} (value: {$correctAns['value']})");
+                    $this->line("Hint: {$question['config']['hint']}\n");
+                }
+            }
+
+            $this->line("");
         }
     }
+
 }
