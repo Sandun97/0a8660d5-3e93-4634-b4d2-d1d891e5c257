@@ -62,6 +62,26 @@ class GenerateReportTest extends TestCase
                     ['questionId' => 'numeracy1', 'response' => 'option3']
                 ],
                 'results' => ['rawScore' => 1]
+            ],
+            [
+                'id' => 'studentResponse2',
+                'assessmentId' => 'assessment1',
+                'completed' => '2025-08-23',
+                'student' => ['id' => 'student2', 'yearLevel' => 6],
+                'responses' => [
+                    ['questionId' => 'numeracy1', 'response' => 'option2']
+                ],
+                'results' => ['rawScore' => 0]
+            ],
+            [
+                'id' => 'studentResponse3',
+                'assessmentId' => 'assessment1',
+                'completed' => '2025-08-23',
+                'student' => ['id' => 'student3', 'yearLevel' => 6],
+                'responses' => [
+                    ['questionId' => 'numeracy1', 'response' => 'option4']
+                ],
+                'results' => ['rawScore' => 0]
             ]
         ];
 
@@ -74,8 +94,8 @@ class GenerateReportTest extends TestCase
 
     public function testGenerateDiagnosticReport()
     {
-        $this->artisan('report:generate', ['studentId' => 'student1', 'type' => 'diagnostic'])
-            ->expectsOutputToContain('Tony Stark recently completed Numeracy assessment')
+        $this->artisan('report:generate', ['studentId' => 'student2', 'type' => 'diagnostic'])
+            ->expectsOutputToContain('Steve Rogers recently completed Numeracy assessment')
             ->assertExitCode(0);
     }
 
