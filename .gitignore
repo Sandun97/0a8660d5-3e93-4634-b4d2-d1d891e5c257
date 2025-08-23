@@ -15,9 +15,6 @@
 /node_modules
 /public/build
 /public/hot
-!/storage/app/data/
-/storage/framework
-/storage/logs
 /vendor
 Homestead.json
 Homestead.yaml
